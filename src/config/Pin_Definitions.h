@@ -6,9 +6,9 @@
 #define ERROR_LED_PIN 3
 
 // Stepper Motor Pins
-#define STEPPER_STEP_PIN 4
-#define STEPPER_DIR_PIN 5
-#define STEPPER_ENABLE_PIN 6
+#define STEPPER_STEP_PIN 3
+#define STEPPER_DIR_PIN 8
+#define STEPPER_ENABLE_PIN 9
 
 #endif
 

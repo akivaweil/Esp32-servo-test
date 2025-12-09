@@ -21,6 +21,9 @@ const long MAX_STEPS = 15000;
 bool movementActive = false;
 unsigned long lastMovementTime = 0;
 const unsigned long MOVEMENT_DELAY = 1000; // Delay between movements (ms)
+unsigned long sequenceStartTime = 0;
+const unsigned long SEQUENCE_DURATION = 10000; // Run for 10 seconds (ms)
+bool sequenceComplete = false;
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
 //║ 🚀 SETUP                                                              ║
@@ -42,6 +45,7 @@ void setup() {
         stepper->setAutoEnable(true);
         stepper->setSpeedInHz(STEPPER_SPEED);
         stepper->setAcceleration(STEPPER_ACCEL);
+        sequenceStartTime = millis();
     }
 }
 
@@ -54,28 +58,36 @@ void loop() {
     updateOTA();
     
     // Handle stepper movement sequence
-    if (stepper) {
+    if (stepper && !sequenceComplete) {
         unsigned long currentTime = millis();
         
-        // Check if movement is complete
-        if (movementActive && stepper->isRunning() == false) {
-            movementActive = false;
-            lastMovementTime = currentTime;
-        }
-        
-        // Start new random movement after delay
-        if (!movementActive && (currentTime - lastMovementTime >= MOVEMENT_DELAY)) {
-            // Generate random steps between MIN_STEPS and MAX_STEPS
-            long randomSteps = random(MIN_STEPS, MAX_STEPS + 1);
-            
-            // Random direction (positive or negative)
-            if (random(0, 2) == 0) {
-                randomSteps = -randomSteps;
+        // Check if 10 seconds have passed
+        if (currentTime - sequenceStartTime >= SEQUENCE_DURATION) {
+            // Stop motor and disable
+            stepper->forceStopAndNewPosition(stepper->getCurrentPosition());
+            stepper->disableOutputs();
+            sequenceComplete = true;
+        } else {
+            // Check if movement is complete
+            if (movementActive && stepper->isRunning() == false) {
+                movementActive = false;
+                lastMovementTime = currentTime;
             }
             
-            // Start movement
-            stepper->move(randomSteps);
-            movementActive = true;
+            // Start new random movement after delay
+            if (!movementActive && (currentTime - lastMovementTime >= MOVEMENT_DELAY)) {
+                // Generate random steps between MIN_STEPS and MAX_STEPS
+                long randomSteps = random(MIN_STEPS, MAX_STEPS + 1);
+                
+                // Random direction (positive or negative)
+                if (random(0, 2) == 0) {
+                    randomSteps = -randomSteps;
+                }
+                
+                // Start movement
+                stepper->move(randomSteps);
+                movementActive = true;
+            }
         }
     }
     
