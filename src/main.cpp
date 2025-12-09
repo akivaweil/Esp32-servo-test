@@ -1,29 +1,31 @@
 #include <Arduino.h>
-#include <FastAccelStepper.h>
-#include "config/Pin_Definitions.h"
+#include "Paint_Motor_Controller.h"
+#include "Ultrasonic_Sensor.h"
 
 // Forward declarations
 void initializeOTA();
 void updateOTA();
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
-//║ ⚙️ STEPPER CONFIGURATION                                              ║
+//║ ⚙️ MOVEMENT CONFIGURATION                                             ║
 //╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
 
-FastAccelStepperEngine engine = FastAccelStepperEngine();
-FastAccelStepper *stepper = NULL;
-
-const float STEPPER_SPEED = 10000.0;
-const float STEPPER_ACCEL = 10000.0;
 const long MIN_STEPS = 3000;
 const long MAX_STEPS = 15000;
+const unsigned long MOVEMENT_DELAY = 1000; // Delay between movements (ms)
+const unsigned long SEQUENCE_DURATION = 10000; // Run for 10 seconds (ms)
 
 bool movementActive = false;
 unsigned long lastMovementTime = 0;
-const unsigned long MOVEMENT_DELAY = 1000; // Delay between movements (ms)
 unsigned long sequenceStartTime = 0;
-const unsigned long SEQUENCE_DURATION = 10000; // Run for 10 seconds (ms)
 bool sequenceComplete = false;
+
+//╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
+//║ 📡 ULTRASONIC SENSOR CONFIGURATION                                    ║
+//╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
+
+const unsigned long ULTRASONIC_READ_INTERVAL = 500; // Read every 500ms
+unsigned long lastUltrasonicRead = 0;
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
 //║ 🚀 SETUP                                                              ║
@@ -37,16 +39,13 @@ void setup() {
     initializeOTA();
     
     // Initialize stepper motor
-    engine.init();
-    stepper = engine.stepperConnectToPin(STEPPER_STEP_PIN);
-    if (stepper) {
-        stepper->setDirectionPin(STEPPER_DIR_PIN);
-        stepper->setEnablePin(STEPPER_ENABLE_PIN);
-        stepper->setAutoEnable(true);
-        stepper->setSpeedInHz(STEPPER_SPEED);
-        stepper->setAcceleration(STEPPER_ACCEL);
-        sequenceStartTime = millis();
-    }
+    initializeStepper();
+    sequenceStartTime = millis();
+    
+    // Initialize ultrasonic sensor
+    initializeUltrasonic();
+    Serial.println("Ultrasonic sensor initialized!");
+    Serial.println("Distance readings will appear every 500ms");
 }
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
@@ -57,19 +56,19 @@ void loop() {
     // Update OTA
     updateOTA();
     
-    // Handle stepper movement sequence
-    if (stepper && !sequenceComplete) {
+    // Handle movement sequence
+    if (!sequenceComplete) {
         unsigned long currentTime = millis();
         
         // Check if 10 seconds have passed
         if (currentTime - sequenceStartTime >= SEQUENCE_DURATION) {
             // Stop motor and disable
-            stepper->forceStopAndNewPosition(stepper->getCurrentPosition());
-            stepper->disableOutputs();
+            stopStepper();
+            disableStepper();
             sequenceComplete = true;
         } else {
             // Check if movement is complete
-            if (movementActive && stepper->isRunning() == false) {
+            if (movementActive && !isStepperRunning()) {
                 movementActive = false;
                 lastMovementTime = currentTime;
             }
@@ -85,10 +84,25 @@ void loop() {
                 }
                 
                 // Start movement
-                stepper->move(randomSteps);
+                moveStepper(randomSteps);
                 movementActive = true;
             }
         }
+    }
+    
+    // Read and display ultrasonic sensor distance
+    unsigned long currentTime = millis();
+    if (currentTime - lastUltrasonicRead >= ULTRASONIC_READ_INTERVAL) {
+        float distanceCm = readDistance();
+        float distanceInches = readDistanceInches();
+        
+        Serial.print("Distance: ");
+        Serial.print(distanceCm);
+        Serial.print(" cm (");
+        Serial.print(distanceInches);
+        Serial.println(" inches)");
+        
+        lastUltrasonicRead = currentTime;
     }
     
     delay(10);

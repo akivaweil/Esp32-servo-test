@@ -2,7 +2,10 @@
 #include <WiFi.h>
 #include <ArduinoOTA.h>
 #include "config/Config.h"
-#include "config/Pin_Definitions.h"
+
+// LED Pins
+#define STATUS_LED_PIN 2
+#define ERROR_LED_PIN 3
 
 //* ************************************************************************
 //* ************************ OTA MANAGER ***********************************
@@ -71,6 +74,7 @@ void updateOTA() {
     // Check if we need to initialize OTA (first connection)
     if (!otaInitialized && WiFi.status() == WL_CONNECTED) {
         wifiConnected = true;
+        printIPAddress(); // Print IP on boot when WiFi connects
         setupArduinoOTA();
     }
 
