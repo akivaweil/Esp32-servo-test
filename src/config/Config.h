@@ -12,6 +12,7 @@
 // Time of Flight Sensor Pins (VL53L0X - I2C)
 #define TOF_SDA_PIN 10  // I2C Data pin
 #define TOF_SCL_PIN 11  // I2C Clock pin
+#define TOF_XSHUT_PIN 1 // XSHUT (shutdown) pin - LOW = disabled, HIGH = enabled
 
 #endif
 
