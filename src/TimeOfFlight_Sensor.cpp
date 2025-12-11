@@ -24,14 +24,6 @@ bool tofInitialized = false;
 //╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
 
 void initializeToF() {
-    // Configure XSHUT pin (shutdown control)
-    // HIGH = sensor enabled, LOW = sensor disabled/reset
-    pinMode(TOF_XSHUT_PIN, OUTPUT);
-    digitalWrite(TOF_XSHUT_PIN, LOW);  // Pull LOW to reset sensor
-    delay(10);
-    digitalWrite(TOF_XSHUT_PIN, HIGH); // Pull HIGH to enable sensor
-    delay(10);
-    
     // Initialize I2C communication with custom pins
     Wire.begin(TOF_SDA_PIN, TOF_SCL_PIN);
     
