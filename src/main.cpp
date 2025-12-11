@@ -141,15 +141,10 @@ void loop() {
         if (currentTime - lastUltrasonicPrint >= ULTRASONIC_PRINT_INTERVAL) {
             if (readingCount > 0) {
                 float averageDistanceCm = distanceSum / readingCount;
-                float averageDistanceInches = averageDistanceCm / 2.54;
                 
                 Serial.print("Distance: ");
                 Serial.print(averageDistanceCm);
-                Serial.print(" cm (");
-                Serial.print(averageDistanceInches);
-                Serial.print(" inches) - averaged from ");
-                Serial.print(readingCount);
-                Serial.println(" readings");
+                Serial.println(" cm");
                 
                 // Reset accumulator
                 distanceSum = 0.0;
