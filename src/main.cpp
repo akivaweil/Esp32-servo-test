@@ -219,7 +219,18 @@ void loop() {
                 Serial.print(averageDistanceCm);
                 Serial.println(" cm");
             } else {
-                Serial.println("ToF: No valid readings (sensor may be out of range or timing out)");
+                // Show raw value for debugging
+                float rawMm = readToFRawDistance();
+                Serial.print("ToF: No valid readings - Raw value: ");
+                Serial.print(rawMm);
+                Serial.print(" mm (");
+                if (rawMm < 30) {
+                    Serial.println("too close, need >30mm)");
+                } else if (rawMm > 2000) {
+                    Serial.println("too far, max 2000mm)");
+                } else {
+                    Serial.println("check sensor)");
+                }
             }
             
             // Reset accumulator

@@ -25,28 +25,49 @@ bool tofInitialized = false;
 
 void initializeToF() {
     // Initialize I2C communication with custom pins
+    // Set slower clock speed for better reliability (100kHz)
     Wire.begin(TOF_SDA_PIN, TOF_SCL_PIN);
+    Wire.setClock(100000); // 100kHz I2C speed (slower = more reliable)
     delay(100); // Give I2C time to stabilize
     
-    // Scan I2C bus to check if sensor is present
-    Serial.print("Scanning I2C bus... ");
-    Wire.beginTransmission(0x29); // VL53L0X default I2C address
+    // Full I2C bus scan to find all devices
+    Serial.println("Scanning I2C bus...");
+    byte devicesFound = 0;
+    for (byte address = 1; address < 127; address++) {
+        Wire.beginTransmission(address);
+        byte error = Wire.endTransmission();
+        if (error == 0) {
+            Serial.print("I2C device found at address 0x");
+            if (address < 16) Serial.print("0");
+            Serial.println(address, HEX);
+            devicesFound++;
+        }
+    }
+    if (devicesFound == 0) {
+        Serial.println("No I2C devices found! Check wiring.");
+    }
+    
+    // Check specifically for VL53L0X at 0x29
+    Serial.print("Checking VL53L0X at 0x29... ");
+    Wire.beginTransmission(0x29);
     byte error = Wire.endTransmission();
     if (error == 0) {
-        Serial.println("Sensor found at address 0x29");
+        Serial.println("Found!");
     } else {
-        Serial.print("No device found at 0x29 (error: ");
+        Serial.print("Not found (error: ");
         Serial.print(error);
         Serial.println(")");
     }
     
     // Initialize the VL53L0X sensor
+    Serial.print("Initializing VL53L0X... ");
     if (!tofSensor.init()) {
-        Serial.println("Failed to initialize ToF sensor!");
+        Serial.println("FAILED!");
         Serial.println("Check wiring: SDA->GPIO10, SCL->GPIO11, VIN->3.3V, GND->GND");
         tofInitialized = false;
         return;
     }
+    Serial.println("OK");
     
     // Set measurement timeout (in milliseconds)
     // Longer timeout = longer range but slower readings
@@ -54,10 +75,12 @@ void initializeToF() {
     
     // Use single-shot mode instead of continuous (more reliable)
     // Continuous mode can sometimes have issues
-    tofSensor.setMeasurementTimingBudget(20000); // 20ms timing budget for faster readings
+    // Try longer timing budget for better accuracy
+    tofSensor.setMeasurementTimingBudget(33000); // 33ms timing budget (default)
     
     tofInitialized = true;
     Serial.println("ToF sensor initialized successfully!");
+    Serial.println("Place an object 5-200cm in front of sensor and type 'ToF' to test");
 }
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
@@ -88,11 +111,28 @@ float readToFDistance() {
     
     // VL53L0X can return very large values when out of range
     // Valid range is typically 30mm to 2000mm
-    if (distanceMm > 2000) {
+    // But also check for minimum range (sensor needs at least 30mm)
+    if (distanceMm < 30 || distanceMm > 2000) {
         return 0.0; // Out of range
     }
     
     return (float)distanceMm;
+}
+
+//╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
+//║ 🔍 READ RAW DISTANCE (FOR DEBUGGING)                                 ║
+//╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
+
+float readToFRawDistance() {
+    if (!tofInitialized) {
+        return 0.0;
+    }
+    
+    // Read raw value without filtering for debugging
+    uint16_t distanceMm = tofSensor.readRangeSingleMillimeters();
+    bool timeout = tofSensor.timeoutOccurred();
+    
+    return (float)distanceMm; // Return raw value even if out of range
 }
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
