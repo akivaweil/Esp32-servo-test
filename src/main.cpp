@@ -218,11 +218,13 @@ void loop() {
                 Serial.print("ToF Distance: ");
                 Serial.print(averageDistanceCm);
                 Serial.println(" cm");
-                
-                // Reset accumulator
-                tofDistanceSum = 0.0;
-                tofReadingCount = 0;
+            } else {
+                Serial.println("ToF: No valid readings (sensor may be out of range or timing out)");
             }
+            
+            // Reset accumulator
+            tofDistanceSum = 0.0;
+            tofReadingCount = 0;
             
             lastToFPrint = currentTime;
         }

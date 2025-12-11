@@ -26,6 +26,7 @@ bool tofInitialized = false;
 void initializeToF() {
     // Initialize I2C communication with custom pins
     Wire.begin(TOF_SDA_PIN, TOF_SCL_PIN);
+    delay(100); // Give I2C time to stabilize
     
     // Initialize the VL53L0X sensor
     if (!tofSensor.init()) {
@@ -41,6 +42,7 @@ void initializeToF() {
     // Start continuous measurement mode
     // This allows faster readings
     tofSensor.startContinuous();
+    delay(100); // Give sensor time to start measuring
     
     tofInitialized = true;
     Serial.println("ToF sensor initialized successfully!");
