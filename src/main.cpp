@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "Paint_Motor_Controller.h"
 #include "Ultrasonic_Sensor.h"
+#include "TimeOfFlight_Sensor.h"
 
 // Forward declarations
 void initializeOTA();
@@ -33,6 +34,18 @@ float distanceSum = 0.0; // Accumulator for averaging
 unsigned int readingCount = 0; // Count of readings for averaging
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
+//║ 📡 TIME OF FLIGHT SENSOR CONFIGURATION                                 ║
+//╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
+
+const unsigned long TOF_READ_INTERVAL = 50; // Sense every 50ms
+const unsigned long TOF_PRINT_INTERVAL = 500; // Print averaged result every 500ms
+unsigned long lastToFRead = 0;
+unsigned long lastToFPrint = 0;
+bool tofActive = false; // Control flag for ToF readings
+float tofDistanceSum = 0.0; // Accumulator for averaging
+unsigned int tofReadingCount = 0; // Count of readings for averaging
+
+//╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
 //║ 🚀 SETUP                                                              ║
 //╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
 
@@ -50,7 +63,13 @@ void setup() {
     // Initialize ultrasonic sensor
     initializeUltrasonic();
     Serial.println("Ultrasonic sensor initialized!");
-    Serial.println("Type 'Ultra' to start readings, 'stop' to stop");
+    
+    // Initialize ToF sensor
+    initializeToF();
+    
+    Serial.println("Type 'Ultra' to start ultrasonic readings");
+    Serial.println("Type 'ToF' to start ToF sensor readings");
+    Serial.println("Type 'stop' to stop readings");
 }
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
@@ -73,16 +92,31 @@ void loop() {
         
         if (command == "ultra") {
             ultrasonicActive = true;
-            // Reset accumulator when starting
+            tofActive = false; // Stop ToF when starting ultrasonic
+            // Reset accumulators when starting
             distanceSum = 0.0;
             readingCount = 0;
+            tofDistanceSum = 0.0;
+            tofReadingCount = 0;
             Serial.println("Ultrasonic sensing started!");
+        } else if (command == "tof") {
+            tofActive = true;
+            ultrasonicActive = false; // Stop ultrasonic when starting ToF
+            // Reset accumulators when starting
+            tofDistanceSum = 0.0;
+            tofReadingCount = 0;
+            distanceSum = 0.0;
+            readingCount = 0;
+            Serial.println("ToF sensor sensing started!");
         } else if (command == "stop") {
             ultrasonicActive = false;
-            // Reset accumulator when stopping
+            tofActive = false;
+            // Reset accumulators when stopping
             distanceSum = 0.0;
             readingCount = 0;
-            Serial.println("Ultrasonic sensing stopped!");
+            tofDistanceSum = 0.0;
+            tofReadingCount = 0;
+            Serial.println("All sensing stopped!");
         }
     }
     
@@ -142,7 +176,7 @@ void loop() {
             if (readingCount > 0) {
                 float averageDistanceCm = distanceSum / readingCount;
                 
-                Serial.print("Distance: ");
+                Serial.print("Ultrasonic Distance: ");
                 Serial.print(averageDistanceCm);
                 Serial.println(" cm");
                 
@@ -152,6 +186,45 @@ void loop() {
             }
             
             lastUltrasonicPrint = currentTime;
+        }
+    }
+    
+    //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
+    //║ 📡 TIME OF FLIGHT SENSOR TEST                                        ║
+    //╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
+    
+    // Read and display ToF sensor distance (only when active)
+    if (tofActive) {
+        unsigned long currentTime = millis();
+        
+        // Sense every 50ms and accumulate readings
+        if (currentTime - lastToFRead >= TOF_READ_INTERVAL) {
+            float distanceCm = readToFDistanceCm();
+            
+            // Only add valid readings (non-zero)
+            if (distanceCm > 0.0) {
+                tofDistanceSum += distanceCm;
+                tofReadingCount++;
+            }
+            
+            lastToFRead = currentTime;
+        }
+        
+        // Print averaged result every 500ms
+        if (currentTime - lastToFPrint >= TOF_PRINT_INTERVAL) {
+            if (tofReadingCount > 0) {
+                float averageDistanceCm = tofDistanceSum / tofReadingCount;
+                
+                Serial.print("ToF Distance: ");
+                Serial.print(averageDistanceCm);
+                Serial.println(" cm");
+                
+                // Reset accumulator
+                tofDistanceSum = 0.0;
+                tofReadingCount = 0;
+            }
+            
+            lastToFPrint = currentTime;
         }
     }
     
