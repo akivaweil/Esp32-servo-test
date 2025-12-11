@@ -24,9 +24,13 @@ bool sequenceComplete = false;
 //║ 📡 ULTRASONIC SENSOR CONFIGURATION                                    ║
 //╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
 
-const unsigned long ULTRASONIC_READ_INTERVAL = 100; // Read every 100ms (10 readings/second)
+const unsigned long ULTRASONIC_READ_INTERVAL = 50; // Sense every 50ms
+const unsigned long ULTRASONIC_PRINT_INTERVAL = 500; // Print averaged result every 500ms
 unsigned long lastUltrasonicRead = 0;
+unsigned long lastUltrasonicPrint = 0;
 bool ultrasonicActive = false; // Control flag for ultrasonic readings
+float distanceSum = 0.0; // Accumulator for averaging
+unsigned int readingCount = 0; // Count of readings for averaging
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
 //║ 🚀 SETUP                                                              ║
@@ -69,9 +73,15 @@ void loop() {
         
         if (command == "ultra") {
             ultrasonicActive = true;
+            // Reset accumulator when starting
+            distanceSum = 0.0;
+            readingCount = 0;
             Serial.println("Ultrasonic sensing started!");
         } else if (command == "stop") {
             ultrasonicActive = false;
+            // Reset accumulator when stopping
+            distanceSum = 0.0;
+            readingCount = 0;
             Serial.println("Ultrasonic sensing stopped!");
         }
     }
@@ -113,17 +123,40 @@ void loop() {
     // Read and display ultrasonic sensor distance (only when active)
     if (ultrasonicActive) {
         unsigned long currentTime = millis();
+        
+        // Sense every 50ms and accumulate readings
         if (currentTime - lastUltrasonicRead >= ULTRASONIC_READ_INTERVAL) {
             float distanceCm = readDistance();
-            float distanceInches = readDistanceInches();
             
-            Serial.print("Distance: ");
-            Serial.print(distanceCm);
-            Serial.print(" cm (");
-            Serial.print(distanceInches);
-            Serial.println(" inches)");
+            // Only add valid readings (non-zero)
+            if (distanceCm > 0.0) {
+                distanceSum += distanceCm;
+                readingCount++;
+            }
             
             lastUltrasonicRead = currentTime;
+        }
+        
+        // Print averaged result every 500ms
+        if (currentTime - lastUltrasonicPrint >= ULTRASONIC_PRINT_INTERVAL) {
+            if (readingCount > 0) {
+                float averageDistanceCm = distanceSum / readingCount;
+                float averageDistanceInches = averageDistanceCm / 2.54;
+                
+                Serial.print("Distance: ");
+                Serial.print(averageDistanceCm);
+                Serial.print(" cm (");
+                Serial.print(averageDistanceInches);
+                Serial.print(" inches) - averaged from ");
+                Serial.print(readingCount);
+                Serial.println(" readings");
+                
+                // Reset accumulator
+                distanceSum = 0.0;
+                readingCount = 0;
+            }
+            
+            lastUltrasonicPrint = currentTime;
         }
     }
     
