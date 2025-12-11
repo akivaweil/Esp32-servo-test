@@ -24,7 +24,7 @@ bool sequenceComplete = false;
 //║ 📡 ULTRASONIC SENSOR CONFIGURATION                                    ║
 //╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
 
-const unsigned long ULTRASONIC_READ_INTERVAL = 500; // Read every 500ms
+const unsigned long ULTRASONIC_READ_INTERVAL = 100; // Read every 100ms (10 readings/second)
 unsigned long lastUltrasonicRead = 0;
 bool ultrasonicActive = false; // Control flag for ultrasonic readings
 
