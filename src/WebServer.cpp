@@ -21,6 +21,7 @@ extern float distanceSum;
 extern unsigned int readingCount;
 extern float tofDistanceSum;
 extern unsigned int tofReadingCount;
+extern float lastKnownToFDistance;
 extern bool movementActive;
 extern bool sequenceComplete;
 
@@ -445,8 +446,13 @@ void initializeWebServer() {
         
         // ToF data
         float tofDistance = 0.0;
-        if (tofActive && tofReadingCount > 0) {
-            tofDistance = tofDistanceSum / tofReadingCount;
+        if (tofActive) {
+            if (tofReadingCount > 0) {
+                tofDistance = tofDistanceSum / tofReadingCount;
+            } else if (lastKnownToFDistance > 0.0) {
+                // Use last known value when current reading is zero
+                tofDistance = lastKnownToFDistance;
+            }
         }
         json += "\"tof\":{";
         json += "\"active\":" + String(tofActive ? "true" : "false") + ",";

@@ -45,6 +45,7 @@ unsigned long lastToFPrint = 0;
 bool tofActive = false; // Control flag for ToF readings
 float tofDistanceSum = 0.0; // Accumulator for averaging
 unsigned int tofReadingCount = 0; // Count of readings for averaging
+float lastKnownToFDistance = 0.0; // Last known valid ToF reading (ignores zeros)
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
 //║ 🚀 SETUP                                                              ║
@@ -208,11 +209,13 @@ void loop() {
         if (currentTime - lastToFRead >= TOF_READ_INTERVAL) {
             float distanceCm = readToFDistanceCm();
             
-            // Only add valid readings (non-zero)
+            // Only add valid readings (non-zero) and update last known value
             if (distanceCm > 0.0) {
                 tofDistanceSum += distanceCm;
                 tofReadingCount++;
+                lastKnownToFDistance = distanceCm; // Store last valid reading
             }
+            // If zero, ignore it and keep using lastKnownToFDistance
             
             lastToFRead = currentTime;
         }
@@ -221,10 +224,16 @@ void loop() {
         if (currentTime - lastToFPrint >= TOF_PRINT_INTERVAL) {
             if (tofReadingCount > 0) {
                 float averageDistanceCm = tofDistanceSum / tofReadingCount;
+                lastKnownToFDistance = averageDistanceCm; // Update last known with average
                 
                 Serial.print("ToF Distance: ");
                 Serial.print(averageDistanceCm);
                 Serial.println(" cm");
+            } else if (lastKnownToFDistance > 0.0) {
+                // Use last known value when current reading is zero
+                Serial.print("ToF Distance: ");
+                Serial.print(lastKnownToFDistance);
+                Serial.println(" cm (last known)");
             } else {
                 // Show raw value for debugging
                 float rawMm = readToFRawDistance();
