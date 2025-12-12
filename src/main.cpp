@@ -2,6 +2,7 @@
 #include "Paint_Motor_Controller.h"
 #include "Ultrasonic_Sensor.h"
 #include "TimeOfFlight_Sensor.h"
+#include "WebServer.h"
 
 // Forward declarations
 void initializeOTA();
@@ -67,6 +68,9 @@ void setup() {
     // Initialize ToF sensor
     initializeToF();
     
+    // Initialize web server (will start once WiFi connects)
+    initializeWebServer();
+    
     Serial.println("Type 'Ultra' to start ultrasonic readings");
     Serial.println("Type 'ToF' to start ToF sensor readings");
     Serial.println("Type 'stop' to stop readings");
@@ -79,6 +83,9 @@ void setup() {
 void loop() {
     // Update OTA
     updateOTA();
+    
+    // Update web server
+    updateWebServer();
     
     //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
     //║ 📡 SERIAL COMMAND PARSING                                            ║
