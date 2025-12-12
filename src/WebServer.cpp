@@ -263,7 +263,7 @@ const char index_html[] PROGMEM = R"rawliteral(
                 <div class="card-title">📡 Ultrasonic Sensor</div>
                 <div class="value">
                     <span id="ultrasonic-value">--</span>
-                    <span class="unit">cm</span>
+                    <span class="unit">inches</span>
                 </div>
                 <div>
                     Status: <span id="ultrasonic-status" class="status inactive">Inactive</span>
@@ -278,7 +278,7 @@ const char index_html[] PROGMEM = R"rawliteral(
                 <div class="card-title">🎯 Time of Flight Sensor</div>
                 <div class="value">
                     <span id="tof-value">--</span>
-                    <span class="unit">cm</span>
+                    <span class="unit">inches</span>
                 </div>
                 <div>
                     Status: <span id="tof-status" class="status inactive">Inactive</span>
@@ -434,7 +434,7 @@ void initializeWebServer() {
     server.on("/api/data", HTTP_GET, [](AsyncWebServerRequest *request){
         String json = "{";
         
-        // Ultrasonic data
+        // Ultrasonic data (convert to inches)
         float ultrasonicDistance = 0.0;
         if (ultrasonicActive && readingCount > 0) {
             ultrasonicDistance = distanceSum / readingCount;
@@ -444,7 +444,7 @@ void initializeWebServer() {
         json += "\"distance\":" + String(ultrasonicDistance, 2);
         json += "},";
         
-        // ToF data
+        // ToF data (already in inches)
         float tofDistance = 0.0;
         if (tofActive) {
             if (tofReadingCount > 0) {
@@ -522,3 +522,4 @@ void updateWebServer() {
         initializeWebServer();
     }
 }
+

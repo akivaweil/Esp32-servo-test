@@ -168,11 +168,11 @@ void loop() {
         
         // Sense every 50ms and accumulate readings
         if (currentTime - lastUltrasonicRead >= ULTRASONIC_READ_INTERVAL) {
-            float distanceCm = readDistance();
+            float distanceInches = readDistanceInches();
             
             // Only add valid readings (non-zero)
-            if (distanceCm > 0.0) {
-                distanceSum += distanceCm;
+            if (distanceInches > 0.0) {
+                distanceSum += distanceInches;
                 readingCount++;
             }
             
@@ -182,11 +182,11 @@ void loop() {
         // Print averaged result every 500ms
         if (currentTime - lastUltrasonicPrint >= ULTRASONIC_PRINT_INTERVAL) {
             if (readingCount > 0) {
-                float averageDistanceCm = distanceSum / readingCount;
+                float averageDistanceInches = distanceSum / readingCount;
                 
                 Serial.print("Ultrasonic Distance: ");
-                Serial.print(averageDistanceCm);
-                Serial.println(" cm");
+                Serial.print(averageDistanceInches);
+                Serial.println(" inches");
                 
                 // Reset accumulator
                 distanceSum = 0.0;
@@ -207,13 +207,13 @@ void loop() {
         
         // Sense every 50ms and accumulate readings
         if (currentTime - lastToFRead >= TOF_READ_INTERVAL) {
-            float distanceCm = readToFDistanceCm();
+            float distanceInches = readToFDistanceInches();
             
             // Only add valid readings (non-zero) and update last known value
-            if (distanceCm > 0.0) {
-                tofDistanceSum += distanceCm;
+            if (distanceInches > 0.0) {
+                tofDistanceSum += distanceInches;
                 tofReadingCount++;
-                lastKnownToFDistance = distanceCm; // Store last valid reading
+                lastKnownToFDistance = distanceInches; // Store last valid reading
             }
             // If zero, ignore it and keep using lastKnownToFDistance
             
@@ -223,17 +223,17 @@ void loop() {
         // Print averaged result every 500ms
         if (currentTime - lastToFPrint >= TOF_PRINT_INTERVAL) {
             if (tofReadingCount > 0) {
-                float averageDistanceCm = tofDistanceSum / tofReadingCount;
-                lastKnownToFDistance = averageDistanceCm; // Update last known with average
+                float averageDistanceInches = tofDistanceSum / tofReadingCount;
+                lastKnownToFDistance = averageDistanceInches; // Update last known with average
                 
                 Serial.print("ToF Distance: ");
-                Serial.print(averageDistanceCm);
-                Serial.println(" cm");
+                Serial.print(averageDistanceInches);
+                Serial.println(" inches");
             } else if (lastKnownToFDistance > 0.0) {
                 // Use last known value when current reading is zero
                 Serial.print("ToF Distance: ");
                 Serial.print(lastKnownToFDistance);
-                Serial.println(" cm (last known)");
+                Serial.println(" inches (last known)");
             } else {
                 // Show raw value for debugging
                 float rawMm = readToFRawDistance();

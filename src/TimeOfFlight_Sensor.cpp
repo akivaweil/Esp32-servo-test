@@ -151,3 +151,13 @@ float readToFDistanceCm() {
     float distanceMm = readToFDistance();
     return distanceMm / 10.0; // Convert mm to cm
 }
+
+//╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
+//║ 📏 READ DISTANCE (INCHES)                                             ║
+//╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
+
+float readToFDistanceInches() {
+    float distanceMm = readToFDistance();
+    return distanceMm / 25.4; // Convert mm to inches
+}
+
