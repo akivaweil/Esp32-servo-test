@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <WiFi.h>
 #include "Paint_Motor_Controller.h"
 #include "Ultrasonic_Sensor.h"
 #include "TimeOfFlight_Sensor.h"
@@ -57,6 +58,23 @@ void setup() {
     
     // Initialize OTA
     initializeOTA();
+    
+    // Wait for WiFi connection and print IP address
+    Serial.println("Waiting for WiFi connection...");
+    unsigned long wifiTimeout = millis() + 30000; // 30 second timeout
+    while (WiFi.status() != WL_CONNECTED && millis() < wifiTimeout) {
+        delay(100);
+        updateOTA(); // Update OTA to trigger WiFi connection check
+    }
+    
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("=== WIFI CONNECTED ===");
+        Serial.print("IP Address: ");
+        Serial.println(WiFi.localIP());
+        Serial.println("======================");
+    } else {
+        Serial.println("WiFi connection timeout - continuing without WiFi");
+    }
     
     // Initialize stepper motor
     initializeStepper();

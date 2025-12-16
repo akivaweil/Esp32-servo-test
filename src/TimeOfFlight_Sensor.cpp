@@ -28,15 +28,15 @@ void initializeToF() {
     // XSHUT is active LOW - LOW = sensor disabled, HIGH = sensor enabled
     pinMode(TOF_XSHUT_PIN, OUTPUT);
     digitalWrite(TOF_XSHUT_PIN, LOW);  // Pull LOW to reset/disable sensor
-    delay(10);
+    delay(50); // Longer delay for reset
     digitalWrite(TOF_XSHUT_PIN, HIGH); // Pull HIGH to enable sensor
-    delay(10);
+    delay(100); // Give sensor time to boot up after enable
     
     // Initialize I2C communication with custom pins
     // Set slower clock speed for better reliability (100kHz)
     Wire.begin(TOF_SDA_PIN, TOF_SCL_PIN);
     Wire.setClock(100000); // 100kHz I2C speed (slower = more reliable)
-    delay(100); // Give I2C time to stabilize
+    delay(200); // Give I2C more time to stabilize
     
     // Full I2C bus scan to find all devices
     Serial.println("Scanning I2C bus...");
@@ -65,17 +65,33 @@ void initializeToF() {
         Serial.print("Not found (error: ");
         Serial.print(error);
         Serial.println(")");
+        Serial.println("Skipping ToF initialization - device not responding");
+        tofInitialized = false;
+        return;
     }
     
-    // Initialize the VL53L0X sensor
+    // Additional delay to ensure sensor is ready
+    delay(50);
+    
+    // Initialize the VL53L0X sensor with timeout protection
     Serial.print("Initializing VL53L0X... ");
-    if (!tofSensor.init()) {
+    unsigned long initStart = millis();
+    bool initResult = tofSensor.init();
+    unsigned long initDuration = millis() - initStart;
+    
+    if (!initResult) {
         Serial.println("FAILED!");
+        Serial.print("Init took ");
+        Serial.print(initDuration);
+        Serial.println("ms");
         Serial.println("Check wiring: SDA->GPIO10, SCL->GPIO11, VIN->3.3V, GND->GND");
         tofInitialized = false;
         return;
     }
-    Serial.println("OK");
+    
+    Serial.print("OK (");
+    Serial.print(initDuration);
+    Serial.println("ms)");
     
     // Set measurement timeout (in milliseconds)
     // Longer timeout = longer range but slower readings
