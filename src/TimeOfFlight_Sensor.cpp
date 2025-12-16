@@ -89,11 +89,12 @@ void updateToFInit() {
                 Wire.beginTransmission(tofScanAddress);
                 byte error = Wire.endTransmission();
                 if (error == 0) {
-                    Serial.print("I2C device found at address 0x");
-                    if (tofScanAddress < 16) Serial.print("0");
-                    Serial.println(tofScanAddress, HEX);
                     tofDeviceFound = true;
                     if (tofScanAddress == 0x29) {
+                        // Only print when we find our target device
+                        Serial.print("I2C device found at address 0x");
+                        if (tofScanAddress < 16) Serial.print("0");
+                        Serial.println(tofScanAddress, HEX);
                         break; // Found our sensor
                     }
                 }
