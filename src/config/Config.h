@@ -13,6 +13,7 @@
 #define TOF_SDA_PIN 10  // I2C Data pin
 #define TOF_SCL_PIN 11  // I2C Clock pin
 #define TOF_XSHUT_PIN 1 // XSHUT (shutdown) pin - LOW = disabled, HIGH = enabled
+#define TOF_INIT_TIMEOUT_MS 2000 // Timeout for VL53L0X initialization (2 seconds)
 
 #endif
 

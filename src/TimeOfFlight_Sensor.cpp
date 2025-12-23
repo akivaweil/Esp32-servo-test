@@ -31,6 +31,7 @@ enum ToFInitState {
     TOF_INIT_SCANNING,
     TOF_INIT_CHECKING,
     TOF_INIT_READY_DELAY,
+    TOF_INIT_OTA_WINDOW,
     TOF_INIT_CALLING_INIT,
     TOF_INIT_CONFIGURING,
     TOF_INIT_COMPLETE,
@@ -133,7 +134,17 @@ void updateToFInit() {
         case TOF_INIT_READY_DELAY:
             if (millis() - tofInitStartTime >= 50) {
                 Serial.print("Initializing VL53L0X... ");
+                Serial.println("(OTA available for 10 seconds)");
                 tofInitStartTime = millis();
+                tofInitState = TOF_INIT_OTA_WINDOW;
+            }
+            break;
+            
+        case TOF_INIT_OTA_WINDOW:
+            // Service OTA for 10 seconds before blocking init() call
+            // This gives a window for OTA updates to be received
+            updateOTA();
+            if (millis() - tofInitStartTime >= 10000) {
                 tofInitState = TOF_INIT_CALLING_INIT;
             }
             break;
@@ -143,22 +154,33 @@ void updateToFInit() {
             updateOTA();
             // This is the blocking call - but we've serviced OTA right before it
             // Note: We can't interrupt this call, but OTA was serviced immediately before it
+            unsigned long initCallStartTime = millis();
             bool initResult = tofSensor.init();
             // Call updateOTA() immediately after init() completes
             updateOTA();
             unsigned long initDuration = millis() - tofInitStartTime;
+            unsigned long initCallDuration = millis() - initCallStartTime;
             
-            if (!initResult) {
+            // Check for timeout (2 seconds)
+            if (initCallDuration > TOF_INIT_TIMEOUT_MS) {
+                Serial.println("TIMEOUT!");
+                Serial.print("Init took ");
+                Serial.print(initCallDuration);
+                Serial.println("ms (exceeded 2 second timeout)");
+                Serial.println("Check wiring: SDA->GPIO10, SCL->GPIO11, VIN->3.3V, GND->GND");
+                tofInitState = TOF_INIT_FAILED;
+                tofInitialized = false;
+            } else if (!initResult) {
                 Serial.println("FAILED!");
                 Serial.print("Init took ");
-                Serial.print(initDuration);
+                Serial.print(initCallDuration);
                 Serial.println("ms");
                 Serial.println("Check wiring: SDA->GPIO10, SCL->GPIO11, VIN->3.3V, GND->GND");
                 tofInitState = TOF_INIT_FAILED;
                 tofInitialized = false;
             } else {
                 Serial.print("OK (");
-                Serial.print(initDuration);
+                Serial.print(initCallDuration);
                 Serial.println("ms)");
                 tofInitState = TOF_INIT_CONFIGURING;
             }
