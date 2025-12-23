@@ -14,6 +14,7 @@
 #define TOF_SCL_PIN 11  // I2C Clock pin
 #define TOF_XSHUT_PIN 1 // XSHUT (shutdown) pin - LOW = disabled, HIGH = enabled
 #define TOF_INIT_TIMEOUT_MS 2000 // Timeout for VL53L0X initialization (2 seconds)
+#define TOF_TOTAL_INIT_TIMEOUT_MS 3000 // Total timeout for ToF sensor initialization (3 seconds)
 
 #endif
 

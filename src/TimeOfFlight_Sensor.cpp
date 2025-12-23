@@ -24,6 +24,7 @@ enum ToFInitState {
 
 ToFInitState tofInitState = TOF_INIT_NOT_STARTED;
 unsigned long tofInitStartTime = 0;
+unsigned long tofTotalInitStartTime = 0;
 bool i2cSetup = false;
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
@@ -37,10 +38,19 @@ void updateToFInit() {
             pinMode(TOF_XSHUT_PIN, OUTPUT);
             digitalWrite(TOF_XSHUT_PIN, LOW);
             tofInitStartTime = millis();
+            tofTotalInitStartTime = millis();
             tofInitState = TOF_INIT_RESETTING;
             break;
             
         case TOF_INIT_RESETTING:
+            // Check total timeout
+            if (millis() - tofTotalInitStartTime >= TOF_TOTAL_INIT_TIMEOUT_MS) {
+                Serial.println("ToF initialization timeout - returning to idle");
+                tofInitState = TOF_INIT_NOT_STARTED;
+                tofInitialized = false;
+                break;
+            }
+            
             // Reset delay
             if (millis() - tofInitStartTime >= 50) {
                 digitalWrite(TOF_XSHUT_PIN, HIGH);
@@ -51,6 +61,14 @@ void updateToFInit() {
             break;
             
         case TOF_INIT_INITIALIZING:
+            // Check total timeout
+            if (millis() - tofTotalInitStartTime >= TOF_TOTAL_INIT_TIMEOUT_MS) {
+                Serial.println("ToF initialization timeout - returning to idle");
+                tofInitState = TOF_INIT_NOT_STARTED;
+                tofInitialized = false;
+                break;
+            }
+            
             // Wait for enable delay, then setup I2C
             if (millis() - tofInitStartTime >= 100 && !i2cSetup) {
                 Wire.begin(TOF_SDA_PIN, TOF_SCL_PIN);
@@ -103,7 +121,12 @@ void updateToFInit() {
             
         case TOF_INIT_COMPLETE:
         case TOF_INIT_FAILED:
-            // Done
+            // Check total timeout - if exceeded, return to idle
+            if (millis() - tofTotalInitStartTime >= TOF_TOTAL_INIT_TIMEOUT_MS) {
+                Serial.println("ToF initialization timeout - returning to idle");
+                tofInitState = TOF_INIT_NOT_STARTED;
+                tofInitialized = false;
+            }
             break;
     }
 }
