@@ -10,204 +10,107 @@ void updateOTA();
 //║ 📡 TIME OF FLIGHT SENSOR IMPLEMENTATION                                ║
 //╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
 
-// How Time of Flight (ToF) Sensors Work:
-// 1. Sensor emits infrared laser pulses
-// 2. Light reflects off target object
-// 3. Sensor measures time for light to return
-// 4. Distance = (speed of light × time) / 2
-// 5. VL53L0X uses I2C communication (SDA/SCL pins)
-// 6. Range: ~30mm to 2000mm (2 meters)
-// 7. More accurate than ultrasonic, works in sunlight
-
 VL53L0X tofSensor;
 bool tofInitialized = false;
 
-// ToF initialization state machine
+// Simplified initialization state machine
 enum ToFInitState {
     TOF_INIT_NOT_STARTED,
-    TOF_INIT_RESET_DELAY,
-    TOF_INIT_ENABLE_DELAY,
-    TOF_INIT_I2C_DELAY,
-    TOF_INIT_SCANNING,
-    TOF_INIT_CHECKING,
-    TOF_INIT_READY_DELAY,
-    TOF_INIT_OTA_WINDOW,
-    TOF_INIT_CALLING_INIT,
-    TOF_INIT_CONFIGURING,
+    TOF_INIT_RESETTING,
+    TOF_INIT_INITIALIZING,
     TOF_INIT_COMPLETE,
     TOF_INIT_FAILED
 };
 
 ToFInitState tofInitState = TOF_INIT_NOT_STARTED;
 unsigned long tofInitStartTime = 0;
-byte tofScanAddress = 1;
-bool tofDeviceFound = false;
-bool tofAddressPrinted = false;
+bool i2cSetup = false;
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
 //║ 🔧 INITIALIZATION (NON-BLOCKING STATE MACHINE)                       ║
 //╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
 
-// Non-blocking initialization that can be called from loop()
 void updateToFInit() {
     switch (tofInitState) {
         case TOF_INIT_NOT_STARTED:
-            Serial.println("Initializing ToF sensor (OTA available during init)...");
+            Serial.println("Initializing ToF sensor...");
             pinMode(TOF_XSHUT_PIN, OUTPUT);
             digitalWrite(TOF_XSHUT_PIN, LOW);
             tofInitStartTime = millis();
-            tofInitState = TOF_INIT_RESET_DELAY;
+            tofInitState = TOF_INIT_RESETTING;
             break;
             
-        case TOF_INIT_RESET_DELAY:
+        case TOF_INIT_RESETTING:
+            // Reset delay
             if (millis() - tofInitStartTime >= 50) {
                 digitalWrite(TOF_XSHUT_PIN, HIGH);
                 tofInitStartTime = millis();
-                tofInitState = TOF_INIT_ENABLE_DELAY;
+                i2cSetup = false;
+                tofInitState = TOF_INIT_INITIALIZING;
             }
             break;
             
-        case TOF_INIT_ENABLE_DELAY:
-            if (millis() - tofInitStartTime >= 100) {
+        case TOF_INIT_INITIALIZING:
+            // Wait for enable delay, then setup I2C
+            if (millis() - tofInitStartTime >= 100 && !i2cSetup) {
                 Wire.begin(TOF_SDA_PIN, TOF_SCL_PIN);
                 Wire.setClock(100000);
-                tofInitStartTime = millis();
-                tofInitState = TOF_INIT_I2C_DELAY;
-            }
-            break;
-            
-        case TOF_INIT_I2C_DELAY:
-            if (millis() - tofInitStartTime >= 200) {
-                Serial.println("Scanning I2C bus...");
-                tofScanAddress = 1;
-                tofDeviceFound = false;
-                tofAddressPrinted = false;
-                tofInitState = TOF_INIT_SCANNING;
-            }
-            break;
-            
-        case TOF_INIT_SCANNING:
-            // Scan I2C bus incrementally (check a few addresses per loop)
-            for (byte i = 0; i < 10 && tofScanAddress < 127; i++, tofScanAddress++) {
-                Wire.beginTransmission(tofScanAddress);
-                byte error = Wire.endTransmission();
-                if (error == 0) {
-                    tofDeviceFound = true;
-                    if (tofScanAddress == 0x29 && !tofAddressPrinted) {
-                        // Only print when we find our target device (once)
-                        Serial.print("I2C device found at address 0x");
-                        if (tofScanAddress < 16) Serial.print("0");
-                        Serial.println(tofScanAddress, HEX);
-                        tofAddressPrinted = true;
-                        break; // Found our sensor
-                    }
-                }
+                i2cSetup = true;
             }
             
-            if (tofScanAddress >= 127) {
-                if (!tofDeviceFound) {
-                    Serial.println("No I2C devices found! Check wiring.");
-                }
-                Serial.print("Checking VL53L0X at 0x29... ");
-                tofInitState = TOF_INIT_CHECKING;
+            // Wait for I2C to stabilize
+            if (millis() - tofInitStartTime < 300) {
+                break;
             }
-            break;
             
-        case TOF_INIT_CHECKING: {
-            Wire.beginTransmission(0x29);
-            byte error = Wire.endTransmission();
-            if (error == 0) {
-                Serial.println("Found!");
-                tofInitStartTime = millis();
-                tofInitState = TOF_INIT_READY_DELAY;
-            } else {
-                Serial.print("Not found (error: ");
-                Serial.print(error);
-                Serial.println(")");
-                Serial.println("Skipping ToF initialization - device not responding");
-                tofInitState = TOF_INIT_FAILED;
-                tofInitialized = false;
+            // I2C ready, proceed with OTA window and init
+            
+            // Service OTA before blocking init call
+            updateOTA();
+            
+            // Check if we should proceed with init (allow OTA window)
+            if (millis() - tofInitStartTime < 10300) {
+                // Still in OTA window, keep servicing
+                break;
             }
-            break;
-        }
             
-        case TOF_INIT_READY_DELAY:
-            if (millis() - tofInitStartTime >= 50) {
+            // Now do the blocking init
+            {
+                updateOTA();
                 Serial.print("Initializing VL53L0X... ");
-                Serial.println("(OTA available for 10 seconds)");
-                tofInitStartTime = millis();
-                tofInitState = TOF_INIT_OTA_WINDOW;
+                unsigned long initStart = millis();
+                bool initResult = tofSensor.init();
+                updateOTA();
+                unsigned long initDuration = millis() - initStart;
+                
+                if (initDuration > TOF_INIT_TIMEOUT_MS || !initResult) {
+                    Serial.println("FAILED!");
+                    Serial.println("Check wiring: SDA->GPIO10, SCL->GPIO11, VIN->3.3V, GND->GND");
+                    tofInitState = TOF_INIT_FAILED;
+                    tofInitialized = false;
+                } else {
+                    Serial.print("OK (");
+                    Serial.print(initDuration);
+                    Serial.println("ms)");
+                    tofSensor.setTimeout(500);
+                    tofSensor.setMeasurementTimingBudget(33000);
+                    tofInitialized = true;
+                    tofInitState = TOF_INIT_COMPLETE;
+                    Serial.println("ToF sensor ready!");
+                }
             }
-            break;
-            
-        case TOF_INIT_OTA_WINDOW:
-            // Service OTA for 10 seconds before blocking init() call
-            // This gives a window for OTA updates to be received
-            updateOTA();
-            if (millis() - tofInitStartTime >= 10000) {
-                tofInitState = TOF_INIT_CALLING_INIT;
-            }
-            break;
-            
-        case TOF_INIT_CALLING_INIT: {
-            // Call updateOTA() right before the blocking init() call to maximize OTA availability
-            updateOTA();
-            // This is the blocking call - but we've serviced OTA right before it
-            // Note: We can't interrupt this call, but OTA was serviced immediately before it
-            unsigned long initCallStartTime = millis();
-            bool initResult = tofSensor.init();
-            // Call updateOTA() immediately after init() completes
-            updateOTA();
-            unsigned long initDuration = millis() - tofInitStartTime;
-            unsigned long initCallDuration = millis() - initCallStartTime;
-            
-            // Check for timeout (2 seconds)
-            if (initCallDuration > TOF_INIT_TIMEOUT_MS) {
-                Serial.println("TIMEOUT!");
-                Serial.print("Init took ");
-                Serial.print(initCallDuration);
-                Serial.println("ms (exceeded 2 second timeout)");
-                Serial.println("Check wiring: SDA->GPIO10, SCL->GPIO11, VIN->3.3V, GND->GND");
-                tofInitState = TOF_INIT_FAILED;
-                tofInitialized = false;
-            } else if (!initResult) {
-                Serial.println("FAILED!");
-                Serial.print("Init took ");
-                Serial.print(initCallDuration);
-                Serial.println("ms");
-                Serial.println("Check wiring: SDA->GPIO10, SCL->GPIO11, VIN->3.3V, GND->GND");
-                tofInitState = TOF_INIT_FAILED;
-                tofInitialized = false;
-            } else {
-                Serial.print("OK (");
-                Serial.print(initCallDuration);
-                Serial.println("ms)");
-                tofInitState = TOF_INIT_CONFIGURING;
-            }
-            break;
-        }
-            
-        case TOF_INIT_CONFIGURING:
-            tofSensor.setTimeout(500);
-            tofSensor.setMeasurementTimingBudget(33000);
-            tofInitialized = true;
-            tofInitState = TOF_INIT_COMPLETE;
-            Serial.println("ToF sensor initialized successfully!");
-            Serial.println("Place an object 5-200cm in front of sensor and type 'ToF' to test");
             break;
             
         case TOF_INIT_COMPLETE:
         case TOF_INIT_FAILED:
-            // Already done, do nothing
+            // Done
             break;
     }
 }
 
 void initializeToF() {
-    // Start non-blocking initialization state machine
-    // Actual initialization happens incrementally in updateToFInit() called from loop()
     if (tofInitState == TOF_INIT_NOT_STARTED) {
-        tofInitState = TOF_INIT_NOT_STARTED; // Will start on first call to updateToFInit()
+        // Will start on first call to updateToFInit()
     }
 }
 
