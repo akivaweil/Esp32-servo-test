@@ -88,9 +88,6 @@ void setup() {
     initializeUltrasonic();
     Serial.println("Ultrasonic sensor initialized!");
     
-    // Initialize ToF sensor (non-blocking, will complete in loop)
-    initializeToF();
-    
     // Initialize web server (will start once WiFi connects)
     initializeWebServer();
     
@@ -133,6 +130,8 @@ void loop() {
             tofReadingCount = 0;
             Serial.println("Ultrasonic sensing started!");
         } else if (command == "tof") {
+            // Initialize ToF sensor if not already initialized
+            initializeToF();
             tofActive = true;
             ultrasonicActive = false; // Stop ultrasonic when starting ToF
             // Reset accumulators when starting
@@ -282,6 +281,7 @@ void loop() {
         }
     }
     
-    delay(10);
+    // Small delay to prevent watchdog issues, but keep OTA responsive
+    delay(1);
 }
 

@@ -26,6 +26,7 @@ ToFInitState tofInitState = TOF_INIT_NOT_STARTED;
 unsigned long tofInitStartTime = 0;
 unsigned long tofTotalInitStartTime = 0;
 bool i2cSetup = false;
+bool tofInitRequested = false;
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
 //║ 🔧 INITIALIZATION (NON-BLOCKING STATE MACHINE)                       ║
@@ -34,6 +35,10 @@ bool i2cSetup = false;
 void updateToFInit() {
     switch (tofInitState) {
         case TOF_INIT_NOT_STARTED:
+            // Only start if explicitly requested
+            if (!tofInitRequested) {
+                break; // Wait for explicit request
+            }
             Serial.println("Initializing ToF sensor...");
             pinMode(TOF_XSHUT_PIN, OUTPUT);
             digitalWrite(TOF_XSHUT_PIN, LOW);
@@ -48,6 +53,7 @@ void updateToFInit() {
                 Serial.println("ToF initialization timeout - returning to idle");
                 tofInitState = TOF_INIT_NOT_STARTED;
                 tofInitialized = false;
+                tofInitRequested = false; // Clear request flag
                 break;
             }
             
@@ -66,6 +72,7 @@ void updateToFInit() {
                 Serial.println("ToF initialization timeout - returning to idle");
                 tofInitState = TOF_INIT_NOT_STARTED;
                 tofInitialized = false;
+                tofInitRequested = false; // Clear request flag
                 break;
             }
             
@@ -120,21 +127,30 @@ void updateToFInit() {
             break;
             
         case TOF_INIT_COMPLETE:
+            // Initialization complete, clear request flag
+            tofInitRequested = false;
+            break;
+            
         case TOF_INIT_FAILED:
             // Check total timeout - if exceeded, return to idle
             if (millis() - tofTotalInitStartTime >= TOF_TOTAL_INIT_TIMEOUT_MS) {
                 Serial.println("ToF initialization timeout - returning to idle");
                 tofInitState = TOF_INIT_NOT_STARTED;
                 tofInitialized = false;
+                tofInitRequested = false; // Clear request flag
             }
             break;
     }
 }
 
 void initializeToF() {
-    if (tofInitState == TOF_INIT_NOT_STARTED) {
-        // Will start on first call to updateToFInit()
+    // Only request initialization if not already initialized or in progress
+    if (tofInitState == TOF_INIT_COMPLETE) {
+        return; // Already initialized
     }
+    // Set flag to request initialization
+    tofInitRequested = true;
+    // If already in NOT_STARTED state, it will start on next updateToFInit() call
 }
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
