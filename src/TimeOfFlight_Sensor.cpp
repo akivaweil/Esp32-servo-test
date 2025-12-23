@@ -1,5 +1,6 @@
 #include "TimeOfFlight_Sensor.h"
-#include "config/Config.h"
+#include "Config/Config.h"
+#include "Config/Pins_Definitions.h"
 #include <Wire.h>
 #include <VL53L0X.h>
 

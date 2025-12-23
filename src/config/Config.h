@@ -1,20 +1,16 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+//╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
+//║ ⚙️ CONFIGURATION                                                     ║
+//╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
+
 // WiFi Configuration
 #define WIFI_SSID "Everwood"
 #define WIFI_PASSWORD "Everwood-Staff"
 
-// Ultrasonic Sensor Pins (HC-SR04)
-#define ULTRASONIC_TRIG_PIN 16  // Trigger pin (OUTPUT)
-#define ULTRASONIC_ECHO_PIN 17  // Echo pin (INPUT)
-
-// Time of Flight Sensor Pins (VL53L0X - I2C)
-#define TOF_SDA_PIN 10  // I2C Data pin
-#define TOF_SCL_PIN 11  // I2C Clock pin
-#define TOF_XSHUT_PIN 1 // XSHUT (shutdown) pin - LOW = disabled, HIGH = enabled
+// Time of Flight Sensor Configuration
 #define TOF_INIT_TIMEOUT_MS 2000 // Timeout for VL53L0X initialization (2 seconds)
 #define TOF_TOTAL_INIT_TIMEOUT_MS 3000 // Total timeout for ToF sensor initialization (3 seconds)
 
 #endif
-

@@ -8,10 +8,7 @@
 //║ ⚙️ STEPPER CONFIGURATION                                              ║
 //╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
 
-// Stepper Motor Pins
-#define STEPPER_STEP_PIN 14
-#define STEPPER_DIR_PIN 13 
-#define STEPPER_ENABLE_PIN 10
+#include "Config/Pins_Definitions.h"
 
 // Stepper Motor Parameters
 const float STEPPER_SPEED = 1000.0;

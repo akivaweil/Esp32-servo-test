@@ -1,5 +1,5 @@
 #include "Ultrasonic_Sensor.h"
-#include "config/Config.h"
+#include "Config/Pins_Definitions.h"
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
 //║ 📡 ULTRASONIC SENSOR IMPLEMENTATION                                   ║
