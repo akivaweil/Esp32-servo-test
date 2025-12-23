@@ -8,7 +8,8 @@
 //╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
 
 // Function Declarations
-void initializeToF();
+void initializeToF(); // Start initialization (sets up state machine)
+void updateToFInit(); // Non-blocking initialization update (call from loop)
 float readToFDistance(); // Returns distance in millimeters
 float readToFDistanceCm(); // Returns distance in centimeters
 float readToFDistanceInches(); // Returns distance in inches

@@ -3,6 +3,9 @@
 #include <Wire.h>
 #include <VL53L0X.h>
 
+// Forward declaration for OTA update
+void updateOTA();
+
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
 //║ 📡 TIME OF FLIGHT SENSOR IMPLEMENTATION                                ║
 //╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
@@ -19,92 +22,171 @@
 VL53L0X tofSensor;
 bool tofInitialized = false;
 
+// ToF initialization state machine
+enum ToFInitState {
+    TOF_INIT_NOT_STARTED,
+    TOF_INIT_RESET_DELAY,
+    TOF_INIT_ENABLE_DELAY,
+    TOF_INIT_I2C_DELAY,
+    TOF_INIT_SCANNING,
+    TOF_INIT_CHECKING,
+    TOF_INIT_READY_DELAY,
+    TOF_INIT_CALLING_INIT,
+    TOF_INIT_CONFIGURING,
+    TOF_INIT_COMPLETE,
+    TOF_INIT_FAILED
+};
+
+ToFInitState tofInitState = TOF_INIT_NOT_STARTED;
+unsigned long tofInitStartTime = 0;
+byte tofScanAddress = 1;
+bool tofDeviceFound = false;
+bool tofAddressPrinted = false;
+
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
-//║ 🔧 INITIALIZATION                                                     ║
+//║ 🔧 INITIALIZATION (NON-BLOCKING STATE MACHINE)                       ║
 //╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
 
-void initializeToF() {
-    // Configure XSHUT pin (shutdown control)
-    // XSHUT is active LOW - LOW = sensor disabled, HIGH = sensor enabled
-    pinMode(TOF_XSHUT_PIN, OUTPUT);
-    digitalWrite(TOF_XSHUT_PIN, LOW);  // Pull LOW to reset/disable sensor
-    delay(50); // Longer delay for reset
-    digitalWrite(TOF_XSHUT_PIN, HIGH); // Pull HIGH to enable sensor
-    delay(100); // Give sensor time to boot up after enable
-    
-    // Initialize I2C communication with custom pins
-    // Set slower clock speed for better reliability (100kHz)
-    Wire.begin(TOF_SDA_PIN, TOF_SCL_PIN);
-    Wire.setClock(100000); // 100kHz I2C speed (slower = more reliable)
-    delay(200); // Give I2C more time to stabilize
-    
-    // Full I2C bus scan to find all devices
-    Serial.println("Scanning I2C bus...");
-    byte devicesFound = 0;
-    for (byte address = 1; address < 127; address++) {
-        Wire.beginTransmission(address);
-        byte error = Wire.endTransmission();
-        if (error == 0) {
-            Serial.print("I2C device found at address 0x");
-            if (address < 16) Serial.print("0");
-            Serial.println(address, HEX);
-            devicesFound++;
+// Non-blocking initialization that can be called from loop()
+void updateToFInit() {
+    switch (tofInitState) {
+        case TOF_INIT_NOT_STARTED:
+            Serial.println("Initializing ToF sensor (OTA available during init)...");
+            pinMode(TOF_XSHUT_PIN, OUTPUT);
+            digitalWrite(TOF_XSHUT_PIN, LOW);
+            tofInitStartTime = millis();
+            tofInitState = TOF_INIT_RESET_DELAY;
+            break;
+            
+        case TOF_INIT_RESET_DELAY:
+            if (millis() - tofInitStartTime >= 50) {
+                digitalWrite(TOF_XSHUT_PIN, HIGH);
+                tofInitStartTime = millis();
+                tofInitState = TOF_INIT_ENABLE_DELAY;
+            }
+            break;
+            
+        case TOF_INIT_ENABLE_DELAY:
+            if (millis() - tofInitStartTime >= 100) {
+                Wire.begin(TOF_SDA_PIN, TOF_SCL_PIN);
+                Wire.setClock(100000);
+                tofInitStartTime = millis();
+                tofInitState = TOF_INIT_I2C_DELAY;
+            }
+            break;
+            
+        case TOF_INIT_I2C_DELAY:
+            if (millis() - tofInitStartTime >= 200) {
+                Serial.println("Scanning I2C bus...");
+                tofScanAddress = 1;
+                tofDeviceFound = false;
+                tofAddressPrinted = false;
+                tofInitState = TOF_INIT_SCANNING;
+            }
+            break;
+            
+        case TOF_INIT_SCANNING:
+            // Scan I2C bus incrementally (check a few addresses per loop)
+            for (byte i = 0; i < 10 && tofScanAddress < 127; i++, tofScanAddress++) {
+                Wire.beginTransmission(tofScanAddress);
+                byte error = Wire.endTransmission();
+                if (error == 0) {
+                    tofDeviceFound = true;
+                    if (tofScanAddress == 0x29 && !tofAddressPrinted) {
+                        // Only print when we find our target device (once)
+                        Serial.print("I2C device found at address 0x");
+                        if (tofScanAddress < 16) Serial.print("0");
+                        Serial.println(tofScanAddress, HEX);
+                        tofAddressPrinted = true;
+                        break; // Found our sensor
+                    }
+                }
+            }
+            
+            if (tofScanAddress >= 127) {
+                if (!tofDeviceFound) {
+                    Serial.println("No I2C devices found! Check wiring.");
+                }
+                Serial.print("Checking VL53L0X at 0x29... ");
+                tofInitState = TOF_INIT_CHECKING;
+            }
+            break;
+            
+        case TOF_INIT_CHECKING: {
+            Wire.beginTransmission(0x29);
+            byte error = Wire.endTransmission();
+            if (error == 0) {
+                Serial.println("Found!");
+                tofInitStartTime = millis();
+                tofInitState = TOF_INIT_READY_DELAY;
+            } else {
+                Serial.print("Not found (error: ");
+                Serial.print(error);
+                Serial.println(")");
+                Serial.println("Skipping ToF initialization - device not responding");
+                tofInitState = TOF_INIT_FAILED;
+                tofInitialized = false;
+            }
+            break;
         }
+            
+        case TOF_INIT_READY_DELAY:
+            if (millis() - tofInitStartTime >= 50) {
+                Serial.print("Initializing VL53L0X... ");
+                tofInitStartTime = millis();
+                tofInitState = TOF_INIT_CALLING_INIT;
+            }
+            break;
+            
+        case TOF_INIT_CALLING_INIT: {
+            // Call updateOTA() right before the blocking init() call to maximize OTA availability
+            updateOTA();
+            // This is the blocking call - but we've serviced OTA right before it
+            // Note: We can't interrupt this call, but OTA was serviced immediately before it
+            bool initResult = tofSensor.init();
+            // Call updateOTA() immediately after init() completes
+            updateOTA();
+            unsigned long initDuration = millis() - tofInitStartTime;
+            
+            if (!initResult) {
+                Serial.println("FAILED!");
+                Serial.print("Init took ");
+                Serial.print(initDuration);
+                Serial.println("ms");
+                Serial.println("Check wiring: SDA->GPIO10, SCL->GPIO11, VIN->3.3V, GND->GND");
+                tofInitState = TOF_INIT_FAILED;
+                tofInitialized = false;
+            } else {
+                Serial.print("OK (");
+                Serial.print(initDuration);
+                Serial.println("ms)");
+                tofInitState = TOF_INIT_CONFIGURING;
+            }
+            break;
+        }
+            
+        case TOF_INIT_CONFIGURING:
+            tofSensor.setTimeout(500);
+            tofSensor.setMeasurementTimingBudget(33000);
+            tofInitialized = true;
+            tofInitState = TOF_INIT_COMPLETE;
+            Serial.println("ToF sensor initialized successfully!");
+            Serial.println("Place an object 5-200cm in front of sensor and type 'ToF' to test");
+            break;
+            
+        case TOF_INIT_COMPLETE:
+        case TOF_INIT_FAILED:
+            // Already done, do nothing
+            break;
     }
-    if (devicesFound == 0) {
-        Serial.println("No I2C devices found! Check wiring.");
+}
+
+void initializeToF() {
+    // Start non-blocking initialization state machine
+    // Actual initialization happens incrementally in updateToFInit() called from loop()
+    if (tofInitState == TOF_INIT_NOT_STARTED) {
+        tofInitState = TOF_INIT_NOT_STARTED; // Will start on first call to updateToFInit()
     }
-    
-    // Check specifically for VL53L0X at 0x29
-    Serial.print("Checking VL53L0X at 0x29... ");
-    Wire.beginTransmission(0x29);
-    byte error = Wire.endTransmission();
-    if (error == 0) {
-        Serial.println("Found!");
-    } else {
-        Serial.print("Not found (error: ");
-        Serial.print(error);
-        Serial.println(")");
-        Serial.println("Skipping ToF initialization - device not responding");
-        tofInitialized = false;
-        return;
-    }
-    
-    // Additional delay to ensure sensor is ready
-    delay(50);
-    
-    // Initialize the VL53L0X sensor with timeout protection
-    Serial.print("Initializing VL53L0X... ");
-    unsigned long initStart = millis();
-    bool initResult = tofSensor.init();
-    unsigned long initDuration = millis() - initStart;
-    
-    if (!initResult) {
-        Serial.println("FAILED!");
-        Serial.print("Init took ");
-        Serial.print(initDuration);
-        Serial.println("ms");
-        Serial.println("Check wiring: SDA->GPIO10, SCL->GPIO11, VIN->3.3V, GND->GND");
-        tofInitialized = false;
-        return;
-    }
-    
-    Serial.print("OK (");
-    Serial.print(initDuration);
-    Serial.println("ms)");
-    
-    // Set measurement timeout (in milliseconds)
-    // Longer timeout = longer range but slower readings
-    tofSensor.setTimeout(500);
-    
-    // Use single-shot mode instead of continuous (more reliable)
-    // Continuous mode can sometimes have issues
-    // Try longer timing budget for better accuracy
-    tofSensor.setMeasurementTimingBudget(33000); // 33ms timing budget (default)
-    
-    tofInitialized = true;
-    Serial.println("ToF sensor initialized successfully!");
-    Serial.println("Place an object 5-200cm in front of sensor and type 'ToF' to test");
 }
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗

@@ -8,6 +8,7 @@
 // Forward declarations
 void initializeOTA();
 void updateOTA();
+void updateToFInit();
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
 //║ ⚙️ MOVEMENT CONFIGURATION                                             ║
@@ -61,7 +62,7 @@ void setup() {
     
     // Wait for WiFi connection and print IP address
     Serial.println("Waiting for WiFi connection...");
-    unsigned long wifiTimeout = millis() + 30000; // 30 second timeout
+    unsigned long wifiTimeout = millis() + 3000; // 3 second timeout
     while (WiFi.status() != WL_CONNECTED && millis() < wifiTimeout) {
         delay(100);
         updateOTA(); // Update OTA to trigger WiFi connection check
@@ -72,6 +73,9 @@ void setup() {
         Serial.print("IP Address: ");
         Serial.println(WiFi.localIP());
         Serial.println("======================");
+        // Ensure OTA is fully initialized before any blocking operations
+        updateOTA();
+        Serial.println("OTA ready for updates");
     } else {
         Serial.println("WiFi connection timeout - continuing without WiFi");
     }
@@ -84,7 +88,7 @@ void setup() {
     initializeUltrasonic();
     Serial.println("Ultrasonic sensor initialized!");
     
-    // Initialize ToF sensor
+    // Initialize ToF sensor (non-blocking, will complete in loop)
     initializeToF();
     
     // Initialize web server (will start once WiFi connects)
@@ -100,8 +104,11 @@ void setup() {
 //╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
 
 void loop() {
-    // Update OTA
+    // Update OTA (must be first to allow updates during initialization)
     updateOTA();
+    
+    // Update ToF initialization (non-blocking state machine)
+    updateToFInit();
     
     // Update web server
     updateWebServer();
