@@ -24,7 +24,10 @@
 #define ERROR_LED_PIN 3
 
 // Button Pins
-#define TEST_BUTTON_PIN 15  // Test button (INPUT, Active HIGH, Internal pull-down)
+#define TEST_BUTTON_PIN 12  // Test button (INPUT, Active HIGH, Internal pull-down)
+
+// Relay Pins
+#define RELAY_PIN 15  // Relay control pin (OUTPUT, Active HIGH)
 
 #endif
 

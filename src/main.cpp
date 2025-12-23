@@ -4,6 +4,8 @@
 #include "Ultrasonic_Sensor.h"
 #include "TimeOfFlight_Sensor.h"
 #include "WebServer.h"
+#include "Relay_Control.h"
+#include "Config/Pins_Definitions.h"
 
 // Forward declarations
 void initializeOTA();
@@ -91,6 +93,12 @@ void setup() {
     // Initialize web server (will start once WiFi connects)
     initializeWebServer();
     
+    // Initialize relay
+    initializeRelay();
+    
+    // Initialize test button
+    pinMode(TEST_BUTTON_PIN, INPUT_PULLDOWN);
+    
     Serial.println("Type 'Ultra' to start ultrasonic readings");
     Serial.println("Type 'ToF' to start ToF sensor readings");
     Serial.println("Type 'stop' to stop readings");
@@ -109,6 +117,17 @@ void loop() {
     
     // Update web server
     updateWebServer();
+    
+    //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
+    //║ 🔘 BUTTON & RELAY CONTROL                                             ║
+    //╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
+    
+    // Check test button and toggle relay
+    if (digitalRead(TEST_BUTTON_PIN) == HIGH) {
+        setRelay(true);
+    } else {
+        setRelay(false);
+    }
     
     //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
     //║ 📡 SERIAL COMMAND PARSING                                            ║
