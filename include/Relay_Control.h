@@ -17,6 +17,7 @@
 void initializeRelay();
 void setRelay(bool state);
 bool getRelayState();
+void forceRelayOff(); // Force relay off regardless of state
 
 #endif
 

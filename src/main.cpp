@@ -95,6 +95,7 @@ void setup() {
     
     // Initialize relay
     initializeRelay();
+    forceRelayOff(); // Force relay off after initialization
     
     // Initialize test button
     pinMode(TEST_BUTTON_PIN, INPUT_PULLDOWN);
