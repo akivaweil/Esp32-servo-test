@@ -1,22 +1,16 @@
-#ifndef RELAY_CONTROL_H
-#define RELAY_CONTROL_H
-
-#include <Arduino.h>
+#ifndef CONFIG_H
+#define CONFIG_H
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
-//║ ⚙️ RELAY CONFIGURATION                                                 ║
+//║ ⚙️ CONFIGURATION                                                     ║
 //╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
 
-#include "Config/Pins_Definitions.h"
+// WiFi Configuration
+#define WIFI_SSID "Everwood"
+#define WIFI_PASSWORD "Everwood-Staff"
 
-// SSR Logic Configuration
-// Set to true if SSR is active LOW (many SSRs use inverted logic)
-#define SSR_ACTIVE_LOW true
-
-// Function Declarations
-void initializeRelay();
-void setRelay(bool state);
-bool getRelayState();
+// Time of Flight Sensor Configuration
+#define TOF_INIT_TIMEOUT_MS 2000 // Timeout for VL53L0X initialization (2 seconds)
+#define TOF_TOTAL_INIT_TIMEOUT_MS 3000 // Total timeout for ToF sensor initialization (3 seconds)
 
 #endif
-
