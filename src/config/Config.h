@@ -13,4 +13,7 @@
 #define TOF_INIT_TIMEOUT_MS 2000 // Timeout for VL53L0X initialization (2 seconds)
 #define TOF_TOTAL_INIT_TIMEOUT_MS 3000 // Total timeout for ToF sensor initialization (3 seconds)
 
+// Pin 3 Toggle Configuration
+#define PIN3_TOGGLE_DELAY_MS 500 // Delay between pin 3 state changes (ms)
+
 #endif

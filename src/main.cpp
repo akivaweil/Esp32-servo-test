@@ -6,6 +6,7 @@
 #include "WebServer.h"
 #include "Relay_Control.h"
 #include "Config/Pins_Definitions.h"
+#include "Config/Config.h"
 
 // Forward declarations
 void initializeOTA();
@@ -50,6 +51,13 @@ bool tofActive = false; // Control flag for ToF readings
 float tofDistanceSum = 0.0; // Accumulator for averaging
 unsigned int tofReadingCount = 0; // Count of readings for averaging
 float lastKnownToFDistance = 0.0; // Last known valid ToF reading (ignores zeros)
+
+//╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
+//║ 🔌 PIN 3 TOGGLE CONFIGURATION                                         ║
+//╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
+
+unsigned long lastPin3Toggle = 0;
+bool pin3State = false;
 
 //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
 //║ 🚀 SETUP                                                              ║
@@ -99,6 +107,9 @@ void setup() {
     
     // Initialize test button
     pinMode(TEST_BUTTON_PIN, INPUT_PULLDOWN);
+    
+    // Initialize pin 3 as output for toggling
+    pinMode(3, OUTPUT);
     
     Serial.println("Type 'Ultra' to start ultrasonic readings");
     Serial.println("Type 'ToF' to start ToF sensor readings");
@@ -299,6 +310,18 @@ void loop() {
             
             lastToFPrint = currentTime;
         }
+    }
+    
+    //╔═══╗ ════════════════════════════════════════════════════════════════ ╔═══╗
+    //║ 🔌 PIN 3 TOGGLE                                                      ║
+    //╚═══╝ ════════════════════════════════════════════════════════════════ ╚═══╝
+    
+    // Toggle pin 3 continuously
+    unsigned long currentTime = millis();
+    if (currentTime - lastPin3Toggle >= PIN3_TOGGLE_DELAY_MS) {
+        pin3State = !pin3State;
+        digitalWrite(3, pin3State ? HIGH : LOW);
+        lastPin3Toggle = currentTime;
     }
     
     // Small delay to prevent watchdog issues, but keep OTA responsive
